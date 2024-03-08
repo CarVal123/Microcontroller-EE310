@@ -1,0 +1,159 @@
+//-----------------------------
+// Title: PIC Assembly Temperature Control System
+//-----------------------------
+// Purpose: The porgram is a temperature control system for a PIC microcontroller that compares the measured temperature to a reference temp.
+// Dependencies: Yes, using TempProject.inc
+// Compiler: IDE v6.20
+// Author: Carlos Valdez
+// OUTPUTS: _set_contreg1 - A signal that turns on the heating element when the measured temperature is below the reference temperature. _set_contreg2 - A signal that turns on the cooling element when the measured temperature is above the reference temperature.
+// Registers: refTemp→ REG 0x20, measuredTemp→ REG 0x21, contReg → REG 0x22 ; Registers 0x60,61,62 ; Registers 0x70,71,72.  
+// INPUTS: #define  measuredTemp  45 ; Defines a input value of the measured temperature. #define  refTemp   5 ; Defines a input value of the reference temperature. 
+// Versions:
+//  	V1.0: 3/7/2024 - First version 
+//  	V1.2: 3/72024
+//-----------------------------
+
+;----------------
+; PROGRAM INPUTS
+;----------------
+; The DEFINE directive is used to create macros or symbolic names for values.
+; It is more flexible and can be used to define complex expressions or sequences of instructions.
+; It is processed by the preprocessor before the assembly begins.
+
+#define  measuredTemp 	45 ; Defines a macro for the input value of the measured temperature.
+#define  refTemp 	5 ; Defines a macro for the input value of the reference temperature.
+
+;---------------------
+; Initialization
+;---------------------
+#include ".\TempProject.inc" 
+#include <xc.inc>
+
+;---------------------
+; Definitions
+;---------------------
+#define SWITCH    LATD,2  ; Defines a macro for the switch connected to the 2nd bit of LATD register.
+#define LED0      PORTD,0 ; Defines a macro for the LED0 connected to the 0th bit of PORTD register.
+#define LED1	  PORTD,1 ; Defines a macro for the LED1 connected to the 1st bit of PORTD register.
+
+;---------------------
+; Program Constants
+;---------------------
+; The EQU (Equals) directive is used to assign a constant value to a symbolic name or label.
+; It is simpler and is typically used for straightforward assignments.
+; It directly substitutes the defined value into the code during the assembly process.
+    
+REG10   equ     10h   // Defines a constant REG10 with a hexadecimal value of 10.
+REG11   equ     11h   // Defines a constant REG11 with a hexadecimal value of 11.
+REG01   equ     1h    // Defines a constant REG01 with a hexadecimal value of 1.
+   
+;---------------------
+; Main Program
+;---------------------
+PSECT absdata,abs,ovrld        ; Starts a new absolute section named absdata. The 'abs' option indicates that the section is absolute, and 'ovrld' allows the section to be overlaid.
+
+;----------------
+; REGISTERS
+;----------------
+refTempREG      equ     20h ; Defines a constant for the register for Reference temperature.
+measuredTempREG equ     21h ; Defines a constant for the register for measured temperature.
+contREG         equ     22h ; Defines a constant for the register for contREG.	
+
+;----------------
+; Main Program
+;----------------
+    
+ORG     0 ; Sets the program counter to 0.
+GOTO    _start_main ; Jumps to the _start_main label.
+
+ORG     0020H ; Sets the program counter to 0020H.
+
+;-----------Main--------------
+; Configure specific bits of TRISD register as outputs    
+_start_main:   
+    MOVLW   0b11111001 ; Loads the literal value 11111001 into the W register.
+    MOVWF   TRISD, 0    ; Moves the contents of the W register to the TRISD register. This sets PORTD 1 and 2 as outputs.
+    MOVLW   measuredTemp ; Loads the value of measuredTemp into the W register.
+    MOVWF   measuredTempREG, 0    ; Moves the contents of the W register to the measuredTempREG. This sets register 10 as measured temperature value.
+    MOVLW   refTemp ; Loads the value of refTemp into the W register.
+    MOVWF   refTempREG, 0 ; Moves the contents of the W register to the refTempREG.
+    
+    MOVLW   measuredTemp ; Loads the value of measuredTemp into the W register.
+    CPFSEQ  refTempREG, 0   ; Compares the contents of the W register with the refTempREG. If they are equal, skips the next instruction.
+    GOTO    _compare_temps ; Jumps to the _compare_temps label if the previous comparison was not equal.
+    
+; If temperatures are equal, set contREG to 0
+    MOVLW   0x00 ; Loads the literal value 0x00 into the W register.
+    MOVWF   contREG, 0      ; Moves the contents of the W register to the contREG. This sets contREG as 0, indicating that the temperatures are matched, or equal.
+;-------------Converting to decimal equivalent-------------
+; Move values to registers for conversion
+_con_temps:
+    MOVFF   measuredTempREG, 0x32   ; Moves the contents of measuredTempREG to register 32.
+    MOVFF   refTempREG, 0x31        ; Moves the contents of refTempREG to register 31.
+; Manually clear the file
+    MOVLW   0x00 ; Loads the literal value 0x00 into the W register.
+    MOVWF   0x30, 0        ; Moves the contents of the W register to the 0x30 file. This manually clears the 0x30 file.
+    MOVLW   0x0A        ; Loads the literal value 0x0A into the W register.
+    
+; Subtract refTemp from measuredTemp
+_subtract_ref:
+    INCF    0x30, 1, 0        ; Increments the contents of register 30 by 1.
+    SUBWF   0x31, 1, 0        ; Subtracts the contents of the W register from register 31.
+    BC      _subtract_ref      ; If the previous subtraction resulted in a borrow, jumps to the _subtract_ref label.
+    DECF    0x30, 1, 0        ; Decrements the contents of register 30 by 1.
+    MOVFF   0x30, 0x61      ; Moves the contents of register 30 to register 61.
+    ADDWF   0x31, 1, 0        ; Adds the contents of the W register to register 31.
+    MOVFF   0x31, 0x60       ; Moves the contents of register 31 to register 60.
+    CLRF    0x30, 0      ; Clears the contents of register 30.
+    
+; Repeat above process but now for measuredTemp and move the decimal value between registers 70-72
+_subtract_measured:
+    INCF    0x30, 1, 0 ; Increments the contents of register 30 by 1.
+    SUBWF   0x32, 1, 0 ; Subtracts the contents of the W register from register 32.
+    BC      _subtract_measured ; If the previous subtraction resulted in a borrow, jumps to the _subtract_measured label.
+    DECF    0x30, 1, 0 ; Decrements the contents of register 30 by 1.
+    MOVFF   0x30, 0x71 ; Moves the contents of register 30 to register 71.
+    ADDWF   0x32, 1, 0 ; Adds the contents of the W register to register 32.
+    MOVFF   0x32, 0x70 ; Moves the contents of register 32 to register 70.
+    CLRF    0x30, 0 ; Clears the contents of register 30.
+    
+    GOTO    _port_control ; Jumps to the _port_control label.
+
+;-------Heating and Cooling-----------------
+; Compare refTemp with measuredTemp
+_compare_temps:    
+    CPFSGT  refTempREG, 0 ; Compares the contents of the W register with the refTempREG. If the W register is greater, skips the next instruction.
+    GOTO    _set_contreg1 ; Jumps to the _set_contreg1 label if the previous comparison was not skipped.
+    CPFSLT  refTempREG, 0 ; Compares the contents of the W register with the refTempREG. If the W register is less, skips the next instruction.
+    GOTO    _set_contreg2 ; Jumps to the _set_contreg2 label if the previous comparison was not skipped.
+    
+   
+; Set contREG as 2, measured is greater than refTemp
+_set_contreg2:
+    MOVLW   0x00 ; Loads the literal value 0x00 into the W register.
+    ADDLW   0x02 ; Adds the literal value 0x02 to the contents of the W register.
+    MOVWF   contREG, 0 ; Moves the contents of the W register to the contREG. This sets contREG as 2, indicating that the measured temperature is greater than the reference temperature.
+    GOTO    _con_temps ; Jumps to the _con_temps label.
+    SLEEP
+; Set contREG as 1, measured is less than refTemp
+_set_contreg1:
+    MOVLW   0x00 ; Loads the literal value 0x00 into the W register.
+    ADDLW   0x01 ; Adds the literal value 0x01 to the contents of the W register.
+    MOVWF   contREG, 0 ; Moves the contents of the W register to the contREG. This sets contREG as 1, indicating that the measured temperature is less than the reference temperature.
+    GOTO    _con_temps ; Jumps to the _con_temps label.
+    SLEEP
+    
+; Check the value of contREG to set PORTD accordingly.
+_port_control:
+    ; Check if the 0th bit of contREG is clear
+    BTFSc   contREG, 0, 0
+    ; Set PORTD, bit 2 if the 0th bit of contREG is clear
+    BSF	    PORTD, 2, 0
+    ; Check if the 1st bit of contREG is clear
+    BTFSC   contREG, 1, 0
+    ; Set PORTD, bit 1 if the 1st bit of contREG is clear
+    BSF	    PORTD, 1, 0
+    
+ 
+; End program
+_sleep:
