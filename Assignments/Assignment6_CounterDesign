@@ -5,7 +5,6 @@ PSECT absdata,abs,ovrld
 ;config statements should precede project file includes. 
     
 ORG	    0X10
-#include    "PIC18F46K42.inc"
 #include    "AssemblyConfig.inc"
 #define	    SW1	    PORTA,0
 #define	    SW2	    PORTA,1
