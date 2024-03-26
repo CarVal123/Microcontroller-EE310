@@ -1,0 +1,142 @@
+;INTITALIZE VARS
+#include <xc.inc>
+
+PSECT absdata,abs,ovrld  
+;config statements should precede project file includes. 
+    
+ORG	    0X10
+#include    "PIC18F46K42.inc"
+#include    "AssemblyConfig.inc"
+#define	    SW1	    PORTA,0
+#define	    SW2	    PORTA,1
+    
+
+R1 EQU 0x1	    ; Inner most Loop Counter for DELAY_SEC
+R2 EQU 0x2	    ; Inner Loop Counter for DELAY_SEC
+R3 EQU 0x3	    ; Outer Loop Counter for DELAY_SEC
+R4 EQU 0x4	    ; Main Loop Counter for DELAY_SEC
+D   EQU	0X01
+MAX	    EQU	    0X32
+MIN	    EQU	    0X33    
+
+; INTIALIZE 
+	    
+ORG	0x0
+BANKSEL	PORTA ;
+CLRF	PORTA ;Init PORTA
+BANKSEL	LATA ;Data Latch
+CLRF	LATA ;
+BANKSEL	ANSELA ;
+CLRF	ANSELA ;digital I/O
+BANKSEL	TRISA ;
+MOVLW	0XFF 
+MOVWF	TRISA
+MOVLW	0X00 
+MOVWF	TRISD 	    
+MOVLW   0XE0
+MOVWF   TBLPTR,0
+MOVLW   0XE0
+MOVWF   MAX,0
+MOVLW   0XF0
+MOVWF   MIN,0
+CALL    DATASET
+CALL    RESET0
+	    
+	    
+CHECK:
+    BTFSC   SW1
+    GOTO    CHECK1
+    BTFSC   SW2
+    CALL    DECREASE
+    GOTO    CHECK
+  
+CHECK1:
+    BTFSS   SW2
+    CALL    INCREASE
+    GOTO    RESET0
+    
+    
+RESET0:; USED TO RESET COUNTER TO "0"
+    MOVLW   0X01
+    MOVWF   TBLPTRH
+    MOVLW   0XE0
+    MOVWF   TBLPTR,0
+    TBLRD*
+    MOVF    TABLAT,0,0
+    MOVFF   WREG,LATD
+    GOTO    CHECK
+    
+RESET1:
+    MOVLW   0XEF
+    MOVWF   TBLPTR,0
+    TBLRD*
+    MOVF    TABLAT,0,0
+    MOVFF   WREG,LATD
+    GOTO    CHECK
+    
+INCREASE:
+    TBLRD+*
+    MOVF    TBLPTR,0,0
+    CALL    ROLLOVCNT	
+    TBLRD*
+    MOVFF   TABLAT,WREG
+    MOVFF   WREG,LATD
+    CALL    DELAY
+    GOTO    CHECK
+    
+DECREASE:
+    MOVF    TBLPTR,0,0
+    CALL    ROLLOVCNT
+    TBLRD*-
+    TBLRD*
+    MOVF    TABLAT,0,0
+    MOVFF   WREG,LATD
+    CALL    DELAY
+    GOTO    CHECK
+
+DELAY:	
+    MOVLW   0X01   
+    MOVWF   R4
+L_1:	; MAIN loop in the subroutine to generate a delay of R4 secs
+    MOVLW 10
+    MOVWF R3	
+L_2:	; outer loop generates a delay of 1 sec
+    MOVLW 100
+    MOVWF R2	
+L_3:	; inner loop generates a delay of 100 msecs
+    MOVLW 199
+    MOVWF R1
+L_4:	; inner most loop generates a delay of 1 msecs
+    NOP
+    NOP
+    DECF R1, F
+    BNZ L_4
+    DECF R2, F
+    BNZ L_3
+    DECF R3, F
+    BNZ L_2	
+    DECF R4, F
+    BNZ L_1	
+    RETURN
+    
+    
+
+     
+ROLLOVCNT:  ; USE TO CHECK IF OV IS DETECTED 
+    MOVF    TBLPTR,1,0
+    SUBLW   0XE0
+    BZ	    RESET1
+    MOVF    TBLPTR,0,0
+    SUBLW   0XF0
+    BZ	    RESET0
+    MOVF    TBLPTR,1,0
+    RETURN
+    
+DATASET: ; SETS THE SEVEN SEGMENT DISPLAY OUTPUTS 
+    ORG	    0X1E0
+    DB	    0X3F, 0X06, 0X5B, 0X4F, 0X66, 0X6D, 0X7D, 0X07, 0X7F, 0X67, 0xF7, 0XFF, 0xB9, 0xBF, 0xF9, 0xF1
+    
+    
+    RETURN   
+   
+END
