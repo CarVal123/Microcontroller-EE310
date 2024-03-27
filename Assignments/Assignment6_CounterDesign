@@ -5,7 +5,7 @@ PSECT absdata,abs,ovrld
 ;config statements should precede project file includes. 
     
 ORG	    0X10
-#include    "AssemblyConfig.inc"
+#include    "./CounterConfig.inc"
 #define	    SW1	    PORTA,0
 #define	    SW2	    PORTA,1
     
@@ -21,13 +21,28 @@ MIN	    EQU	    0X33
 ; INTIALIZE 
 	    
 ORG	0x0
+BANKSEL	PORTD ;
+CLRF	PORTD ;Init PORTA
+BANKSEL	LATD ;Data Latch
+CLRF	LATD ;
+BANKSEL	ANSELD ;
+CLRF	ANSELD ;digital I/O
+BANKSEL	TRISD ;
+MOVLW	0b00000000 ;Set RD[7:1] as outputs
+MOVWF	TRISD ;and set RD0 as ouput
+RETURN
+
 BANKSEL	PORTA ;
-CLRF	PORTA ;Init PORTA
+CLRF	PORTA ;Init PORTB
 BANKSEL	LATA ;Data Latch
 CLRF	LATA ;
 BANKSEL	ANSELA ;
 CLRF	ANSELA ;digital I/O
 BANKSEL	TRISA ;
+MOVLW	0b11111111 ;
+MOVWF	TRISA ;
+RETURN
+	    
 MOVLW	0XFF 
 MOVWF	TRISA
 MOVLW	0X00 
@@ -133,7 +148,7 @@ ROLLOVCNT:  ; USE TO CHECK IF OV IS DETECTED
     
 DATASET: ; SETS THE SEVEN SEGMENT DISPLAY OUTPUTS 
     ORG	    0X1E0
-    DB	    0X3F, 0X06, 0X5B, 0X4F, 0X66, 0X6D, 0X7D, 0X07, 0X7F, 0X67, 0xF7, 0XFF, 0xB9, 0xBF, 0xF9, 0xF1
+    DB	    0X3F, 0X06, 0X5B, 0X4F, 0X66, 0X6D, 0X7D, 0X07, 0X7F, 0X6F, 0x77, 0X7C, 0x58, 0x5E, 0x79, 0x71
     
     
     RETURN   
