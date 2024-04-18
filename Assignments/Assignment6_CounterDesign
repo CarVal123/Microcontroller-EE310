@@ -1,3 +1,18 @@
+//-----------------------------
+// Title: Microcontroller Input Control with switches and Seven-Segment Display Output.
+//-----------------------------
+// Purpose: The purpose of the program is to design a counter using a PIC microcontroller connected to a 7-segment display and two switches.
+// Dependencies: Yes, using CounterConfig.inc
+// Compiler: IDE v6.20
+// Author: Carlos Valdez
+// OUTPUTS: The main output is directed to a 7-segment display, which is controlled via the LATD register.The numbers displayed on the 
+//	    7-segment display as the counter increments, decrements, or resets based on the inputs from switches SW1 and SW2.
+// INPUTS: The inputs are represented by the states of two switches: SW1 and SW2, which correspond to Switch A and Switch B 
+// Versions:
+//  	V1.0: 3/27/2024 - First version 
+//  	V1.2: 3/27/2024
+//-----------------------------
+    
 ;INTITALIZE VARS
 #include <xc.inc>
 
@@ -6,120 +21,177 @@ PSECT absdata,abs,ovrld
     
 ORG	    0X10
 #include    "./CounterConfig.inc"
-#define	    SW1	    PORTA,0
-#define	    SW2	    PORTA,1
-    
+#define	    SW1	    PORTB,0	; Define SW1 and SW2 as PORTB.0 and PORTB.1
+#define	    SW2	    PORTB,1
+
 
 R1 EQU 0x1	    ; Inner most Loop Counter for DELAY_SEC
 R2 EQU 0x2	    ; Inner Loop Counter for DELAY_SEC
 R3 EQU 0x3	    ; Outer Loop Counter for DELAY_SEC
 R4 EQU 0x4	    ; Main Loop Counter for DELAY_SEC
-D   EQU	0X01
-MAX	    EQU	    0X32
-MIN	    EQU	    0X33    
+D  EQU	0X01
+MAX	    EQU	    0X0F
+MIN	    EQU	    0X00    
+; Declare variables for previous switch states
+PREV_SW1    EQU 0x20   ; Define memory location for previous state of SW1
+PREV_SW2    EQU 0x21   ; Define memory location for previous state of SW2
+RESET_FLAG   EQU 0x22   ; Define memory location for RESET_FLAG
 
 ; INTIALIZE 
 	    
-ORG	0x0
-BANKSEL	PORTD ;
-CLRF	PORTD ;Init PORTA
-BANKSEL	LATD ;Data Latch
-CLRF	LATD ;
-BANKSEL	ANSELD ;
-CLRF	ANSELD ;digital I/O
-BANKSEL	TRISD ;
-MOVLW	0b00000000 ;Set RD[7:1] as outputs
-MOVWF	TRISD ;and set RD0 as ouput
-RETURN
-
-BANKSEL	PORTA ;
-CLRF	PORTA ;Init PORTB
-BANKSEL	LATA ;Data Latch
-CLRF	LATA ;
-BANKSEL	ANSELA ;
-CLRF	ANSELA ;digital I/O
-BANKSEL	TRISA ;
-MOVLW	0b11111111 ;
-MOVWF	TRISA ;
-RETURN
+ORG	0x0 ; Set the origin for the program memory
+BANKSEL	PORTD ; Select the bank for PORTD
+CLRF	PORTD ; Clear PORTD
+BANKSEL	LATD ; Select the bank for LATD
+CLRF	LATD ; Clear LATD
+BANKSEL	ANSELD ; Select the bank for ANSELD
+CLRF	ANSELD ; Clear ANSELD
+BANKSEL	TRISD ; Select the bank for TRISD
+MOVLW	0b00000000 ; Load the W register with 0b00000000
+MOVWF	TRISD ; Move the value in W to TRISD
 	    
-MOVLW	0XFF 
-MOVWF	TRISA
-MOVLW	0X00 
-MOVWF	TRISD 	    
-MOVLW   0XE0
-MOVWF   TBLPTR,0
-MOVLW   0XE0
-MOVWF   MAX,0
-MOVLW   0XF0
-MOVWF   MIN,0
-CALL    DATASET
-CALL    RESET0
+BANKSEL	PORTB ; Select the bank for PORTB
+CLRF	PORTB ; Clear PORTB
+BANKSEL	LATB ; Select the bank for LATB
+CLRF	LATB ; Clear LATB
+BANKSEL	ANSELB ; Select the bank for ANSELB
+CLRF	ANSELB ; Clear ANSELB
+BANKSEL	TRISB ; Select the bank for TRISB
+MOVLW	0b11111111 ; Load the W register with 0b11111111
+MOVWF	TRISB ; Move the value in W to TRISB
+	    
+
+MOVLW   0XE0 ; Load the W register with 0xE0
+MOVWF   MAX,0 ; Move the value in W to MAX
+MOVLW   0XF0 ; Load the W register with 0xF0
+MOVWF   MIN,0 ; Move the value in W to MIN
+CALL    DATASET ; Call the DATASET subroutine
+CALL    RESET0 ; Call the RESET0 subroutine
 	    
 	    
 CHECK:
-    BTFSC   SW1
-    GOTO    CHECK1
-    BTFSC   SW2
-    CALL    DECREASE
-    GOTO    CHECK
-  
-CHECK1:
+    BTFSC   SW1 ; If SW1 is clear, skip the next instruction
+    GOTO    CHECK1 ; Go to the CHECK1 routine
+    BTFSC   SW2 ; If SW2 is clear, skip the next instruction
+    CALL    DECREASE ; Call the DECREASE subroutine
+    GOTO    CHECK ; Go back to the CHECK routine
+
+    ; Check if both SW1 and SW2 are pressed simultaneously
+    BTFSC   SW1 ; Check if SW1 is not pressed
+    GOTO    CHECK ; If SW1 is not pressed, continue checking
+    BTFSS   SW2 ; Check if SW2 is pressed
+    GOTO    CHECK ; If SW2 is not pressed, continue checking
+    BTFSC   PREV_SW1,1 ; Check if SW1 was previously unpressed
+    GOTO    CHECK ; If SW1 was pressed before, continue checking
+    BTFSS   PREV_SW2,1 ; Check if SW2 was previously unpressed
+    GOTO    CHECK ; If SW2 was pressed before, continue checking
+
+    ; Both buttons are pressed and were previously unpressed, reset to 0
+    CALL    RESET0 ; Reset to 0
+    BSF     PREV_SW1, 0 ; Set SW1 as previously pressed
+    BSF     PREV_SW2, 0 ; Set SW2 as previously pressed
+    ; Wait until both buttons are released
+WAIT_RELEASE:
+    BTFSS   SW1
     BTFSS   SW2
-    CALL    INCREASE
-    GOTO    RESET0
+    GOTO    WAIT_RELEASE
+    ; Both buttons are released, clear previous state
+    CLRF    PREV_SW1,0 ; Clear previous state of SW1
+    CLRF    PREV_SW2,0 ; Clear previous state of SW2
+    GOTO    CHECK ; Go back to the CHECK routine
+
+
+
+CHECK1:
+    BTFSS   SW2 ; If SW2 is set, skip the next instruction
+    CALL    INCREASE ; Call the INCREASE subroutine
+    GOTO    RESET0 ; Go to the RESET0 routine
+
+
     
     
-RESET0:; USED TO RESET COUNTER TO "0"
-    MOVLW   0X01
-    MOVWF   TBLPTRH
-    MOVLW   0XE0
-    MOVWF   TBLPTR,0
-    TBLRD*
-    MOVF    TABLAT,0,0
-    MOVFF   WREG,LATD
-    GOTO    CHECK
-    
-RESET1:
-    MOVLW   0XEF
-    MOVWF   TBLPTR,0
-    TBLRD*
-    MOVF    TABLAT,0,0
-    MOVFF   WREG,LATD
-    GOTO    CHECK
-    
+
+;MOVLW EF   
+;table read
+;CPFSGT TBLPTR
+;
+
 INCREASE:
-    TBLRD+*
-    MOVF    TBLPTR,0,0
-    CALL    ROLLOVCNT	
-    TBLRD*
-    MOVFF   TABLAT,WREG
-    MOVFF   WREG,LATD
-    CALL    DELAY
-    GOTO    CHECK
+    BTFSC   RESET_FLAG, 0 ; Check if a reset has just occurred
+    GOTO    AFTER_RESET ; If a reset has just occurred, skip the increment
+    TBLRD+* ; Table read and increment the pointer
+    MOVF    TABLAT,0,0 ; Move table latch value to WREG
+    ; Check if the counter is at "F"
+    SUBLW   0x71 ; Subtract the value for "F" from WREG
+    BZ      RESET_TO_ONE ; If the counter is at "F", reset to "1"
+    CALL    ROLLOVCNT    ; Call ROLLOVCNT subroutine	
+    TBLRD* ; Table read and increment the pointer
+AFTER_RESET:
+    MOVFF   TABLAT,WREG ; Move table latch value to WREG
+    MOVFF   WREG,LATD ; Move WREG value to LATD
+    CALL    DELAY ; Call DELAY subroutine
+    CLRF    RESET_FLAG, 0 ; Clear the reset flag
+    GOTO    CHECK ; Go back to the CHECK routine
+
+RESET_TO_ONE:
+    MOVLW   0x1E0 ; Load the address for "1" in the dataset
+    MOVWF   TBLPTR ; Update the table pointer to point to "1"
+    TBLRD* ; Table read and increment the pointer
+    MOVWF   TABLAT ; Move table latch value to WREG
+    GOTO    AFTER_RESET ; Continue with the rest of the routine
+
+
     
+;INCREASE:
+;    TBLRD+* ; Table read and increment the pointer
+;    MOVF    TBLPTR,0,0 ; Move table pointer value to WREG
+;    CALL    ROLLOVCNT    ; Call ROLLOVCNT subroutine	
+;    TBLRD* ; Table read and increment the pointer
+;    MOVFF   TABLAT,WREG ; Move table latch value to WREG
+;    MOVFF   WREG,LATD ; Move WREG value to LATD
+;    CALL    DELAY ; Call DELAY subroutine
+;    GOTO    CHECK ; Go back to the CHECK routine
+    
+;INCREASE:
+;    TBLRD* ; Table read and increment the pointer
+;    MOVF    TABLAT,0,0 ; Move table latch value to WREG
+;    ; Check if the counter is at "F"
+;    SUBLW   0x71 ; Subtract the value for "F" from WREG
+;    BZ      RESET0 ; If the counter is at "F", reset to "0"
+;    CALL    ROLLOVCNT    ; Call ROLLOVCNT subroutine	
+;    TBLRD+* ; Table read and increment the pointer
+;    MOVFF   TABLAT,WREG ; Move table latch value to WREG
+;    MOVFF   WREG,LATD ; Move WREG value to LATD
+;    CALL    DELAY ; Call DELAY subroutine
+;    GOTO    CHECK ; Go back to the CHECK routine
+
+
+
 DECREASE:
-    MOVF    TBLPTR,0,0
-    CALL    ROLLOVCNT
-    TBLRD*-
-    TBLRD*
-    MOVF    TABLAT,0,0
-    MOVFF   WREG,LATD
-    CALL    DELAY
-    GOTO    CHECK
+    MOVF    TBLPTR,0,0 ; Move table pointer value to WREG
+    SUBLW   0XDF ; Subtract literal value from WREG
+    BZ	    RESET1 ; Branch if zero to RESET1
+    CALL    ROLLOVCNT ; Call ROLLOVCNT subroutine
+    TBLRD*- ; Table read and decrement the pointer
+    MOVF    TABLAT,0,0 ; Move table latch value to WREG
+    MOVFF   WREG,LATD ; Move WREG value to LATD
+    CALL    DELAY ; Call DELAY subroutine
+    GOTO    CHECK ; Go back to the CHECK routine
+
+
 
 DELAY:	
-    MOVLW   0X01   
-    MOVWF   R4
+    MOVLW   0X01   ; Move literal value to WREG
+    MOVWF   R4 ; Move WREG value to R4
 L_1:	; MAIN loop in the subroutine to generate a delay of R4 secs
-    MOVLW 10
-    MOVWF R3	
+    MOVLW 10 ; Move literal value to WREG
+    MOVWF R3	; Move WREG value to R3
 L_2:	; outer loop generates a delay of 1 sec
-    MOVLW 100
-    MOVWF R2	
+    MOVLW 100 ; Move literal value to WREG
+    MOVWF R2	; Move WREG value to R2
 L_3:	; inner loop generates a delay of 100 msecs
-    MOVLW 199
-    MOVWF R1
+    MOVLW 199 ; Move literal value to WREG
+    MOVWF R1 ; Move WREG value to R1
 L_4:	; inner most loop generates a delay of 1 msecs
     NOP
     NOP
@@ -137,14 +209,28 @@ L_4:	; inner most loop generates a delay of 1 msecs
 
      
 ROLLOVCNT:  ; USE TO CHECK IF OV IS DETECTED 
-    MOVF    TBLPTR,1,0
-    SUBLW   0XE0
-    BZ	    RESET1
-    MOVF    TBLPTR,0,0
-    SUBLW   0XF0
-    BZ	    RESET0
-    MOVF    TBLPTR,1,0
+    MOVF    TBLPTR,1,0 ; Move table pointer value to WREG
+    SUBLW   0XE0 ; Subtract literal value from WREG
+    BZ	    RESET1 ; Branch if zero to RESET1
+    MOVF    TBLPTR,0,0 ; Move table pointer value to WREG
+    SUBLW   0XF0 ; Subtract literal value from WREG
+    BZ	    RESET0 ; Branch if zero to RESET0
+    MOVF    TBLPTR,1,0 ; Move table pointer value to WREG
+    RETURN ; Return from subroutine
+
+
+RESET0: ; RESET TO "0" WHEN INCREMENTING
+    MOVLW   0X01
+    MOVWF   TBLPTRH
+    MOVLW   0XE0
+    MOVWF   TBLPTR,0
     RETURN
+
+RESET1: ; RESET TO "F" WHEN DECREMENTING
+    MOVLW   0XEF
+    MOVWF   TBLPTR,0
+    RETURN
+
     
 DATASET: ; SETS THE SEVEN SEGMENT DISPLAY OUTPUTS 
     ORG	    0X1E0
