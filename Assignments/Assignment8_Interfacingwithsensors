@@ -1,0 +1,163 @@
+/*
+ * File:   Assignment8.c
+ * Author: Carlos Valdez
+ *
+ * Created on April 23, 2024
+ */
+
+
+ Header files
+#include "Cheaderfor8.h"
+#include <xc.h>
+#include <stdbool.h>
+
+
+
+// Define constants
+#define SYS_LED     LATDbits.LATD0
+#define BUZZER      LATDbits.LATD1
+#define MOTOR       LATDbits.LATD2
+#define PR1         PORTAbits.RA0
+#define PR2         PORTAbits.RA1
+#define ENTER_BTN   PORTCbits.RC0
+#define COUNT_LED_1 LATCbits.LATC1
+#define COUNT_LED_2 LATCbits.LATC2
+#define COUNT_LED_3 LATCbits.LATC3
+#define COUNT_LED_4 LATCbits.LATC4
+#define COUNT_LED_5 LATCbits.LATC5
+#define COUNT_LED_6 LATCbits.LATC6
+#define SECRET_CODE 0x23
+
+// Function prototypes
+void delay_ms(unsigned int ms);
+void display_count(unsigned char count);
+
+// Main function
+void main(void) {
+    // Initialize ports
+    TRISD = 0x00;
+    TRISA = 0xFF;
+    TRISC = 0xFF;
+    LATD = 0x00;
+    LATC = 0x00;
+    
+    // Initialize variables
+    unsigned char count = 0;
+    unsigned char pr1_count = 0;
+    unsigned char pr2_count = 0;
+    bool system_enabled = true;
+    bool secret_code_entered = false;
+    
+    // Main loop
+    while (1) {
+        // Update count display
+        display_count(count);
+        
+        // Check if system is enabled
+        if (system_enabled) {
+            // Turn on SYS_LED
+            SYS_LED = 1;
+            
+            // Check if PR1 and PR2 are both LOW
+            if (PR1 == 0 && PR2 == 0) {
+                // Turn off SYS_LED for 2 seconds
+                SYS_LED = 0;
+                delay_ms(2000);
+                SYS_LED = 1;
+            }
+            
+            // Check if secret code is being entered
+            if (!secret_code_entered) {
+                // Check if PR1 is covered 3 times
+                if (PR1 == 0) {
+                    delay_ms(500); // Debounce delay
+                    if (PR1 == 0) {
+                        pr1_count++;
+                        if (pr1_count >= 3) {
+                            pr1_count = 0;
+                            // Check if PR2 is covered 2 times
+                            while (PR2 == 1) {}
+                            delay_ms(500); // Debounce delay
+                            if (PR2 == 0) {
+                                pr2_count++;
+                                if (pr2_count >= 2) {
+                                    pr2_count = 0;
+                                    // Check if ENTER_BTN is pressed
+                                    if (ENTER_BTN == 0) {
+                                        // Check if secret code is correct
+                                        if (pr1_count == 3 && pr2_count == 2) {
+                                            secret_code_entered = true;
+                                            BUZZER = 1;
+                                            // Increment count
+                                            count++;
+                                            if (count > 39) {
+                                                count = 0;
+                                            }
+                                        } else {
+                                            // Incorrect secret code
+                                            SYS_LED = 0;
+                                            delay_ms(2000);
+                                            SYS_LED = 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Reset counts if PR1 is not covered
+                    pr1_count = 0;
+                    pr2_count = 0;
+                }
+            } else {
+                // Secret code has been entered
+                           // Check if ENTER_BTN is released
+            if (ENTER_BTN == 1) {
+                BUZZER = 0;
+                
+                secret_code_entered = false;
+            }
+        }
+    } else {
+        // System is disabled, turn off SYS_LED and reset counts
+        SYS_LED = 0;
+        pr1_count = 0;
+        pr2_count = 0;
+    }
+    
+    // Check if count display should be disabled
+    if (SYS_LED == 0) {
+        COUNT_LED_1 = 0;
+        COUNT_LED_2 = 0;
+        COUNT_LED_3 = 0;
+        COUNT_LED_4 = 0;
+        COUNT_LED_5 = 0;
+        COUNT_LED_6 = 0;
+    }
+    
+    // Wait for a short amount of time
+    delay_ms(50);
+}
+}
+
+// Function to delay for a given number of milliseconds
+void delay_ms(unsigned int ms) {
+    // Loop to delay execution
+    for (unsigned int i = 0; i < ms; i++) {
+        // Delay for 1 millisecond
+        __delay_ms(1); // Assuming __delay_ms is a built-in delay function
+    }
+}
+
+
+// Function to display the count in packed BCD on 6 LEDs
+void display_count(unsigned char count) {
+unsigned char ones = count % 10;
+unsigned char tens = count / 10;
+COUNT_LED_1 = (ones >= 1);
+COUNT_LED_2 = (ones >= 2);
+COUNT_LED_3 = (ones >= 3);
+COUNT_LED_4 = (tens >= 1);
+COUNT_LED_5 = (tens >= 2);
+COUNT_LED_6 = (tens >= 3);
+}
