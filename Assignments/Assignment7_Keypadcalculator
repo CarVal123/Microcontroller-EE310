@@ -1,0 +1,165 @@
+//;---------------------
+//; Title: Keypad
+//;---------------------
+//; Program Details:
+//; The purpose of this program is to check which number has been pressed 
+//; on the keypad and then turn on PORD accordingly, showing the binary
+//; representation. 
+//    
+//; Inputs: RB3. 4. 6. 7
+//; Outputs: RD0-7 & RB0,1,2
+//; Setup: The Curiosity Board
+//
+//; Date: Feb 24, 2024
+//; File Dependencies / Libraries: It is required to include the
+//;   AssemblyConfig.inc in the Header Folder
+//; Compiler: xc8, 2.4
+//; Author: Carlos Valdez
+//; Versions:
+//;       V1.0: Original
+//; Useful links:
+//; Keypad: https://www.circuitbasics.com/how-to-set-up-a-keypad-on-an-arduino/ 
+//
+//;---------------------
+//; Initialization
+//;---------------------
+#include "./CalcAssembly.h"
+#include <xc.h>
+#include <math.h>
+
+
+//---------------------
+// Program Inputs
+//---------------------
+//
+//---------------------
+// Definitions
+/*---------------------*/
+#define _XTAL_FREQ 4000000                 // Fosc  frequency for _delay()  library
+#define FCY    _XTAL_FREQ/4
+//;---------------------
+//; Program Organization
+//;---------------------
+// void  MSDelay(unsigned int,unsigned int); // function declaration 
+// unsigned char outputValue; 
+//
+// #define SevenSeg PORTB // reminder: also does not show up as a variable
+// #define mybit PORTBbits.RB7
+//
+// void main(void) {
+//    
+//
+//     asm("BANKSEL	PORTB") ; // This is not a standard approach! Try not to mix assembly and C
+//     asm("CLRF	PORTB") ;       //Init PORTB
+//     asm("BANKSEL	LATB") ;    //Data Latch
+//     asm("CLRF	LATB") ;
+//     asm("BANKSEL	ANSELB") ;
+//     asm("CLRF	ANSELB") ;      //digital I/O
+//     asm("BANKSEL	TRISB") ;
+//     asm("MOVLW	0b00000000") ;
+//     asm("MOVWF	TRISB") ;
+//
+//     while(1) // run forever
+//     {
+//         outputValue = 0x55; 
+//         SevenSeg = outputValue; 
+//         MSDelay(25,165);
+//         SevenSeg++;                 // just increment by one
+//         mybit = 1;                  // change bit 7 of PORTB
+//         MSDelay(25,165); 
+//     }     
+// } // end of main()
+//
+//// // function definition 
+// void  MSDelay(unsigned int itime1, unsigned int itime2)
+// {
+//     unsigned int i; unsigned int j;
+//     for (i=0; i<itime1; i++)    // should be able to see itime as a variable
+//       for (j=0; j<itime2; j++);      
+// }
+//;---------------------
+//; Setup & Main Program
+//;---------------------   
+#include <xc.h>
+
+// Variables to hold inputs and operation
+int X_Input_REG = 0;
+int Y_Input_REG = 0;
+char Operation_REG = 0;
+int Display_Result_REG = 0;
+
+// Function to get input from keypad
+int get_input() {
+    // Code to read input from keypad
+}
+
+// Function to get operation from keypad
+char get_operation() {
+    // Code to read operation from keypad
+}
+
+// Function to calculate result
+int calculate_result(int x, int y, char op) {
+    switch(op) {
+        case 'A': // Addition
+            return x + y;
+        case 'B': // Subtraction
+            return x - y;
+        case 'C': // Multiplication
+            return x * y;
+        case 'D': // Division
+            if(y != 0) {
+                return x / y;
+            } else {
+                // Handle division by zero
+                return 0;
+            }
+        default:
+            // Handle invalid operation
+            return 0;
+    }
+}
+
+// Function to display result
+void display_result(int result) {
+    // Code to display result on LEDs
+}
+
+// Function to create a delay
+void MSDelay(unsigned int itime1, unsigned int itime2) {
+    unsigned int i, j;
+    for (i = 0; i < itime1; i++)
+        for (j = 0; j < itime2; j++);
+}
+
+void main() {
+    // Setup PORTD and PORTB
+    PORTD = 0; LATD = 0; ANSELD = 0; TRISD = 0b00000000;
+    PORTB = 0; LATB = 0; ANSELB = 0; TRISB = 0b11111000;
+
+    while(1) {
+        // Get the first input
+        X_Input_REG = get_input();
+        MSDelay(25, 165);  // Add delay
+
+        // Get the operation
+        Operation_REG = get_operation();
+        MSDelay(25, 165);  // Add delay
+
+        // Get the second input
+        Y_Input_REG = get_input();
+        MSDelay(25, 165);  // Add delay
+
+        // Calculate the result
+        Display_Result_REG = calculate_result(X_Input_REG, Y_Input_REG, Operation_REG);
+        MSDelay(25, 165);  // Add delay
+
+        // Display the result
+        display_result(Display_Result_REG);
+        MSDelay(25, 165);  // Add delay
+
+        // Reset the inputs
+        X_Input_REG = 0;
+        Y_Input_REG = 0;
+    }
+}
