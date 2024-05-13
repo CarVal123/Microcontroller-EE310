@@ -1,6 +1,6 @@
-//;---------------------
+//;--------------------
 //; Title: Keypad Calculator
-//;---------------------
+//;--------------------
 //; Program Details:
 //  This application receives user inputs from a keypad to perform basic arithmetic operations.
 //  It prompts the user to enter a digit from 1 to 9, followed by selecting an arithmetic operation 
